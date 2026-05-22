@@ -19,12 +19,6 @@ import java.util.UUID;
 public class userController {
     private final UserService userService;
 
-    //POST /users
-    @PostMapping
-    public UserResponseDTO createUser(@Valid @RequestBody CreateUserRequestDTO dto){
-        return userService.createUser(dto);
-    }
-
     //GET /users/{id}
     @GetMapping("/{id}")
     public UserResponseDTO getUserById(@PathVariable UUID id){

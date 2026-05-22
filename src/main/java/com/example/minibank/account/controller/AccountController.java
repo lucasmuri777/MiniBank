@@ -10,6 +10,7 @@ import jakarta.validation.Valid;
 
 import lombok.RequiredArgsConstructor;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -35,6 +36,7 @@ public class AccountController {
 
     //Buscar todas as contas
     @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public List<AccountResponseDTO> getAllAccounts(){
         return accountService.getAllAccounts();
     }
@@ -47,6 +49,7 @@ public class AccountController {
 
     //Deletar account
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public void deleteAccount(@PathVariable UUID id){
         accountService.deleteAccount(id);
     }

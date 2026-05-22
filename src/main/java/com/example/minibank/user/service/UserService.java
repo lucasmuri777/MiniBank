@@ -5,10 +5,13 @@ import com.example.minibank.shared.exception.ResourceNotFoundException;
 import com.example.minibank.user.dto.CreateUserRequestDTO;
 import com.example.minibank.user.dto.UserResponseDTO;
 import com.example.minibank.user.entity.User;
+import com.example.minibank.user.enums.Role;
 import com.example.minibank.user.repository.UserRepository;
 
+import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -19,6 +22,8 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class UserService {
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+
 
     //Cria um user novo
     public UserResponseDTO createUser(CreateUserRequestDTO dto){
@@ -29,7 +34,8 @@ public class UserService {
         User user = User.builder()
                 .name(dto.getName())
                 .email(dto.getEmail())
-                .password(dto.getPassword())
+                .password(passwordEncoder.encode(dto.getPassword()))
+                .role(Role.USER)
                 .build();
 
         //Salva no postgresql
@@ -60,7 +66,7 @@ public class UserService {
         User user = userRepository.findById(id).orElseThrow(()-> new ResourceNotFoundException("Usuário não encontrado"));
         user.setName(dto.getName());
         user.setEmail(dto.getEmail());
-        user.setPassword(dto.getPassword());
+        user.setPassword(passwordEncoder.encode(dto.getPassword()));
 
         User updateUser = userRepository.save(user);
 
