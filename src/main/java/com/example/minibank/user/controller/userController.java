@@ -1,13 +1,16 @@
 package com.example.minibank.user.controller;
 
+import com.example.minibank.shared.exception.ResourceNotFoundException;
 import com.example.minibank.user.dto.CreateUserRequestDTO;
 import com.example.minibank.user.dto.UserResponseDTO;
+import com.example.minibank.user.entity.User;
 import com.example.minibank.user.service.UserService;
 
 import jakarta.validation.Valid;
 
 import lombok.RequiredArgsConstructor;
 
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -33,13 +36,29 @@ public class userController {
 
     //PUT /users/{id}
     @PutMapping("/{id}")
-    public UserResponseDTO updateUser(@PathVariable UUID id, @Valid @RequestBody CreateUserRequestDTO dto){
+    public UserResponseDTO updateUser(
+            @PathVariable UUID id,
+            @Valid @RequestBody CreateUserRequestDTO dto,
+            Authentication authentication){
+        isUserReq(authentication, id,"Você não pode editar outro usuário");
         return userService.updateUser(id, dto);
     }
 
     //DELETE /users/{id}
     @DeleteMapping("/{id}")
-    public void deleteUser(@PathVariable UUID id){
+    public void deleteUser(@PathVariable UUID id, Authentication authentication){
+        isUserReq(authentication, id, "Você não pode excluir outro usuário");
+
         userService.deleteUserById(id);
+    }
+
+    private void isUserReq(Authentication authentication, UUID id, String message){
+        User loggedUser = (User) authentication.getPrincipal();
+
+        if(!loggedUser.getId().equals(id)){
+            throw new ResourceNotFoundException(
+                    message
+            );
+        }
     }
 }
