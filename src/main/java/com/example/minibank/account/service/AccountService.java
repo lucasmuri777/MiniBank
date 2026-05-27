@@ -6,9 +6,10 @@ import com.example.minibank.account.entity.Account;
 import com.example.minibank.account.repository.AccountRepository;
 
 import com.example.minibank.shared.exception.ResourceNotFoundException;
+import com.example.minibank.transaction.service.TransactionService;
 import com.example.minibank.user.entity.User;
 import com.example.minibank.user.repository.UserRepository;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.stereotype.Service;
@@ -22,6 +23,7 @@ import java.util.UUID;
 public class AccountService {
     private final AccountRepository accountRepository;
     private final UserRepository userRepository;
+    private final TransactionService transactionService;
 
     //Criar uma nova conta
     public AccountResponseDTO createAccount(CreateAccountRequestDTO dto){
@@ -55,10 +57,11 @@ public class AccountService {
     }
 
     //Atualiza
+    @Transactional
     public AccountResponseDTO updateAccount(UUID id, CreateAccountRequestDTO dto){
         User user = userRepository.findById(dto.getUserId())
                 .orElseThrow(()->new ResourceNotFoundException("Usuário não encontrado"));
-        Account account = findById(id);
+        Account account = findByIdForUpdate(id);
         account.setType(dto.getType());
         account.setUser(user);
 
@@ -75,8 +78,9 @@ public class AccountService {
     }
 
     //Deposit deposito em conta
+    @Transactional
     public AccountResponseDTO deposit(UUID accountId, BigDecimal amount){
-        Account account = findById(accountId);
+        Account account = findByIdForUpdate(accountId);
         validateActiveAccount(account);
         if(amount.compareTo(BigDecimal.ZERO) <= 0){
             throw new ResourceNotFoundException("Valor inválido");
@@ -88,13 +92,14 @@ public class AccountService {
         account.setBalance(newBalance);
 
         Account accountSaved = accountRepository.save(account);
-
+        transactionService.saveDeposit(accountId, amount);
         return responseDTO(accountSaved);
     }
 
     //Withdraw sacar saldo
+    @Transactional
     public AccountResponseDTO withdraw(UUID accountId, BigDecimal amount){
-        Account account = findById(accountId);
+        Account account = findByIdForUpdate(accountId);
         validateActiveAccount(account);
         BigDecimal lastBalance = account.getBalance();
         if(lastBalance.compareTo(amount) == -1){
@@ -107,7 +112,7 @@ public class AccountService {
         account.setBalance(newBalance);
 
         Account accountSaved = accountRepository.save(account);
-
+        transactionService.saveWithdraw(accountId, amount);
         return responseDTO(accountSaved);
     }
 
@@ -117,8 +122,8 @@ public class AccountService {
         if(fromAccountId.equals(toAccountId)){
             throw new ResourceNotFoundException("Transferência inválida");
         }
-        Account fromAccount = findById(fromAccountId);
-        Account toAccount = findById(toAccountId);
+        Account fromAccount = findByIdForUpdate(fromAccountId);
+        Account toAccount = findByIdForUpdate(toAccountId);
 
         validateActiveAccount(fromAccount);
         validateActiveAccount(toAccount);
@@ -141,18 +146,16 @@ public class AccountService {
 
         Account fromAccountSaved = accountRepository.save(fromAccount);
         accountRepository.save(toAccount);
-
+        transactionService.saveTransfer(fromAccountId, toAccountId, amount);
         return responseDTO(fromAccountSaved);
     }
 
     //BlockAccount bloquear conta
     public AccountResponseDTO blockAccount(UUID id){
-        Account account = findById(id);
+        Account account = findByIdForUpdate(id);
         account.setActive(false);
 
-        Account accountSaved = accountRepository.save(account);
-
-        return responseDTO(accountSaved);
+        return responseDTO(accountRepository.save(account));
     }
 
     public AccountResponseDTO getByAccountNumber(String accountNumber){
@@ -164,6 +167,11 @@ public class AccountService {
         List<Account> accounts = accountRepository.findAllByUserId(userId);
 
         return accounts.stream().map(this::responseDTO).toList();
+    }
+
+    private Account findByIdForUpdate(UUID id){
+        return accountRepository.findByIdForUpdate(id)
+                .orElseThrow(()-> new ResourceNotFoundException("Account nor found"));
     }
 
     private Account findById(UUID id){
