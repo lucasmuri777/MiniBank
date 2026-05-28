@@ -4,7 +4,9 @@ import com.example.minibank.user.dto.CreateUserRequestDTO;
 import com.example.minibank.user.dto.UserResponseDTO;
 import com.example.minibank.user.entity.User;
 import com.example.minibank.user.repository.UserRepository;
-import com.example.minibank.shared.exception.ResourceNotFoundException;
+import com.example.minibank.shared.exception.BusinessException;
+
+import com.example.minibank.user.mapper.UserMapper;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -30,8 +32,12 @@ class UserServiceTest {
     @Mock
     private PasswordEncoder passwordEncoder;
 
+    @Mock
+    private UserMapper userMapper;
+
     @InjectMocks
     private UserService userService;
+
 
     //Teste 1 - criar user
     @Test
@@ -53,6 +59,12 @@ class UserServiceTest {
 
         when(userRepository.save(any(User.class)))
                 .thenReturn(user);
+
+        //NOVO: Mapper fake
+        when(userMapper.toResponse(any(User.class))).thenAnswer(invocation -> {
+            User u = invocation.getArgument(0);
+            return new UserResponseDTO(u.getId(), u.getName(), u.getEmail());
+        });
 
         //ACT (executar)
         UserResponseDTO response = userService.createUser(dto);
@@ -78,7 +90,11 @@ class UserServiceTest {
 
         when(userRepository.findById(id))
                 .thenReturn(Optional.of(user));
-
+        //NOVO: Mapper fake
+        when(userMapper.toResponse(any(User.class))).thenAnswer(invocation -> {
+            User u = invocation.getArgument(0);
+            return new UserResponseDTO(u.getId(), u.getName(), u.getEmail());
+        });
         UserResponseDTO response = userService.getUserById(id);
 
         assertEquals(id, response.getId());
@@ -94,7 +110,7 @@ class UserServiceTest {
         when(userRepository.findById(id))
                 .thenReturn(Optional.empty());
 
-        assertThrows(ResourceNotFoundException.class, () -> {
+        assertThrows(BusinessException.class, () -> {
             userService.getUserById(id);
         });
     }
@@ -119,7 +135,13 @@ class UserServiceTest {
         );
 
         when(userRepository.findAll()).thenReturn(users);
-
+        //NOVO: Mapper fake
+        when(userMapper.toResponseList(anyList())).thenAnswer(invocation -> {
+            List<User> list = invocation.getArgument(0);
+            return list.stream()
+                    .map(u -> new UserResponseDTO(u.getId(), u.getName(), u.getEmail()))
+                    .toList();
+        });
         List<UserResponseDTO> response = userService.getAllUsers();
 
         assertEquals(2, response.size());
@@ -144,6 +166,11 @@ class UserServiceTest {
         dto.setEmail("new@email.com");
         dto.setPassword("123");
 
+        //NOVO: Mapper fake
+        when(userMapper.toResponse(any(User.class))).thenAnswer(invocation -> {
+            User u = invocation.getArgument(0);
+            return new UserResponseDTO(u.getId(), u.getName(), u.getEmail());
+        });
         UserResponseDTO response = userService.updateUser(id, dto);
 
         assertEquals("New name", response.getName());
